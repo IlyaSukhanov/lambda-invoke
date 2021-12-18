@@ -24,7 +24,6 @@ class SimpleProxyResponse:
 
     async def async_read(self):
         payload = self.invoke_response["Payload"]
-        print(payload)
         self.lambda_response = await payload.read()
 
     @property
@@ -86,7 +85,6 @@ class LambdaSimpleProxy:
             else:
                 return False, self.body.decode("utf-8")
         except UnicodeDecodeError:
-            print(self.body)
             return True, base64.b64encode(self.body).decode("utf-8")
 
     @property
