@@ -20,45 +20,45 @@ class PatcherBase:
 
 class TestSimpleProxy(PatcherBase, TestCase):
     def setUp(self):
-        self.boto3 = self.add_patcher("lambda_invoke.simple_proxy.boto3")
+        self.mock_client = MagicMock()
         self.set_response_payload(
             b'{"body": "ewogICJmb3JtIjoge30sIAogICJoZWFkZXJzIjogIlVzZXItQWdlbnQ6IHB5dGhvbi1yZXF1ZXN0cy8yLjI1LjFcclxuQWNjZXB0LUVuY29kaW5nOiBnemlwLCBkZWZsYXRlXHJcbkFjY2VwdDogKi8qXHJcbkNvbm5lY3Rpb246IGtlZXAtYWxpdmVcclxuXHJcbiIsIAogICJwYXJhbSI6ICJmb28iLCAKICAicXVlcnlfc3RyaW5ncyI6IHt9Cn0K", "isBase64Encoded": "true", "statusCode": 200, "headers": {"Content-Type": "application/json", "X-Request-ID": "", "Content-Length": "195"}}'  # noqa: E501
         )
 
     def set_response_payload(self, payload):
-        self.boto3.client().invoke().__getitem__().read.return_value = payload
+        self.mock_client.invoke().__getitem__().read.return_value = payload
 
     def extract_sent_payload(self, key):
-        return json.loads(self.boto3.client().invoke.call_args[1]["Payload"])[key]
+        return json.loads(self.mock_client.invoke.call_args[1]["Payload"])[key]
 
     def test_200_ok(self):
         self.set_response_payload(STATUS_UP_PAYLOAD)
         proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, None)
-        response = proxy.send()
+        response = proxy.send(self.mock_client)
         assert response.status_code == 200
         assert response.body_stream.read() == b'{\n  "status": "UP"\n}\n'
         assert response.headers["Content-Type"] == "application/json"
 
     def test_json(self):
         proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, None)
-        response = proxy.send()
+        response = proxy.send(self.mock_client)
         assert response.status_code == 200
 
     def test_str_body(self):
         proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, "foo")
-        response = proxy.send()
+        response = proxy.send(self.mock_client)
         assert response.status_code == 200
 
     def test_utf8_body(self):
         proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, b"foo")
-        response = proxy.send()
+        response = proxy.send(self.mock_client)
         assert response.status_code == 200
 
     def test_binary_body(self):
         proxy = LambdaSimpleProxy(
             "us-east-1", "get", "http://example.com/", {}, BINARY_PAYLOAD
         )
-        response = proxy.send()
+        response = proxy.send(self.mock_client)
         assert response.status_code == 200
 
     def test_lambda_exception(self):
@@ -66,7 +66,7 @@ class TestSimpleProxy(PatcherBase, TestCase):
             b'{"errorMessage": "Unable to import module \'service\': No module named \'foobarbaz\'", "errorType": "Runtime.ImportModuleError", "stackTrace": [] }'  # noqa: E501
         )
         proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, None)
-        response = proxy.send()
+        response = proxy.send(self.mock_client)
         assert response.status_code == 502
         assert (
             response.body
@@ -78,7 +78,7 @@ class TestSimpleProxy(PatcherBase, TestCase):
         proxy = LambdaSimpleProxy(
             "us-east-1", "get", "http://example.com/", header_data, None
         )
-        response = proxy.send()
+        response = proxy.send(self.mock_client)
         assert response.status_code == 200
 
     def test_json_serialize_fallthrough(self):

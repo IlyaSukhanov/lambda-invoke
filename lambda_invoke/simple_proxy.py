@@ -3,8 +3,6 @@ import json
 from io import BytesIO
 from urllib.parse import parse_qs, urlparse
 
-import boto3
-
 
 class _JSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -119,8 +117,7 @@ class LambdaSimpleProxy:
             "Payload": self.request_payload_json,
         }
 
-    def send(self, client=None):
-        client = client or boto3.client("lambda", region_name=self.region)
+    def send(self, client):
         invoke_response = client.invoke(**self.invoke_params)
         response = SimpleProxyResponse(invoke_response)
         response.read()
