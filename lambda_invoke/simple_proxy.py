@@ -67,7 +67,10 @@ class LambdaSimpleProxy:
 
     @property
     def function_name(self):
-        return self.url.hostname
+        host_parts = self.url.hostname.split(".")
+        if len(host_parts) > 1:
+            return f"{host_parts[-1]}:{host_parts[-2]}"
+        return host_parts[0]
 
     @property
     def request_query_string(self):
