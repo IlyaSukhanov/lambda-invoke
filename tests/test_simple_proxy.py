@@ -7,7 +7,7 @@ from lambda_invoke import LambdaSimpleProxy
 from lambda_invoke.simple_proxy import _JSONEncoder
 
 BINARY_PAYLOAD = bytes([0xDE, 0xAD, 0xBE, 0xEF] * 100)
-UNICODE_PAYLOAD = u"\u2620\U0001F42E" * 100
+UNICODE_PAYLOAD = "\u2620\U0001F42E" * 100
 STATUS_UP_PAYLOAD = b'{"body": "ewogICJzdGF0dXMiOiAiVVAiCn0K", "isBase64Encoded": "true", "statusCode": 200, "headers": {"Content-Type": "application/json", "X-Request-ID": "", "Content-Length": "21"}}'  # noqa: E501
 
 
@@ -33,30 +33,51 @@ class TestSimpleProxy(PatcherBase, TestCase):
 
     def test_200_ok(self):
         self.set_response_payload(STATUS_UP_PAYLOAD)
-        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, None)
+        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example/", {}, None)
         response = proxy.send(self.mock_client)
         assert response.status_code == 200
         assert response.body_stream.read() == b'{\n  "status": "UP"\n}\n'
         assert response.headers["Content-Type"] == "application/json"
+        assert self.mock_client.invoke.call_args.kwargs.get("FunctionName") == "example"
+
+    def test_200_ok_basic_auth_ignored(self):
+        self.set_response_payload(STATUS_UP_PAYLOAD)
+        proxy = LambdaSimpleProxy(
+            "us-east1", "get", "http://foo:bar@example/", {}, None
+        )
+        response = proxy.send(self.mock_client)
+        assert response.status_code == 200
+        assert self.mock_client.invoke.call_args.kwargs.get("FunctionName") == "example"
+
+    def test_200_ok_alias(self):
+        self.set_response_payload(STATUS_UP_PAYLOAD)
+        proxy = LambdaSimpleProxy(
+            "us-east1", "get", "http://foo:bar@v1.example/", {}, None
+        )
+        response = proxy.send(self.mock_client)
+        assert response.status_code == 200
+        assert (
+            self.mock_client.invoke.call_args.kwargs.get("FunctionName") == "example:v1"
+        )
 
     def test_json(self):
-        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, None)
+        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example/", {}, None)
         response = proxy.send(self.mock_client)
         assert response.status_code == 200
 
     def test_str_body(self):
-        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, "foo")
+        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example/", {}, "foo")
         response = proxy.send(self.mock_client)
         assert response.status_code == 200
 
     def test_utf8_body(self):
-        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, b"foo")
+        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example/", {}, b"foo")
         response = proxy.send(self.mock_client)
         assert response.status_code == 200
 
     def test_binary_body(self):
         proxy = LambdaSimpleProxy(
-            "us-east-1", "get", "http://example.com/", {}, BINARY_PAYLOAD
+            "us-east-1", "get", "http://example/", {}, BINARY_PAYLOAD
         )
         response = proxy.send(self.mock_client)
         assert response.status_code == 200
@@ -65,7 +86,7 @@ class TestSimpleProxy(PatcherBase, TestCase):
         self.set_response_payload(
             b'{"errorMessage": "Unable to import module \'service\': No module named \'foobarbaz\'", "errorType": "Runtime.ImportModuleError", "stackTrace": [] }'  # noqa: E501
         )
-        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, None)
+        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example/", {}, None)
         response = proxy.send(self.mock_client)
         assert response.status_code == 502
         assert (
@@ -76,7 +97,7 @@ class TestSimpleProxy(PatcherBase, TestCase):
     def test_custom_header_byte_string(self):
         header_data = {"foo": b"bar"}
         proxy = LambdaSimpleProxy(
-            "us-east-1", "get", "http://example.com/", header_data, None
+            "us-east-1", "get", "http://example/", header_data, None
         )
         response = proxy.send(self.mock_client)
         assert response.status_code == 200
@@ -89,7 +110,7 @@ class TestSimpleProxy(PatcherBase, TestCase):
 
 class TestSimpleProxyAsync(IsolatedAsyncioTestCase):
     async def test_200_ok_async(self):
-        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example.com/", {}, None)
+        proxy = LambdaSimpleProxy("us-east-1", "get", "http://example/", {}, None)
         mock_client = MagicMock()
         mock_invoke_result = MagicMock()
         mock_client.invoke = AsyncMock(side_effect=mock_invoke_result)
