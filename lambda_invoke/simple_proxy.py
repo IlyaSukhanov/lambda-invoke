@@ -74,7 +74,21 @@ class LambdaSimpleProxy:
 
     @property
     def request_query_string(self):
-        return {key: value[0] for key, value in parse_qs(self.url.query).items()}
+        qs = {
+            "queryStringParameters": {
+                key: value[0]
+                for key, value in parse_qs(self.url.query).items()
+                if len(value) == 1
+            }
+        }
+        multi_value_qs = {
+            key: value
+            for key, value in parse_qs(self.url.query).items()
+            if len(value) > 1
+        }
+        if multi_value_qs:
+            qs["multiValueQueryStringParameters"] = multi_value_qs
+        return qs
 
     @property
     def request_body(self):
@@ -100,11 +114,11 @@ class LambdaSimpleProxy:
             "httpMethod": self.method,
             "path": self.url.path,
             "pathParameters": "",
-            "queryStringParameters": self.request_query_string,
             "headers": self.headers,
             "body": body,
             "isBase64Encoded": base64_encoded,
             "requestContext": {},
+            **self.request_query_string,
         }
 
     @property

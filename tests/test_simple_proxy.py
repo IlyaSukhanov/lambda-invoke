@@ -107,6 +107,46 @@ class TestSimpleProxy(PatcherBase, TestCase):
         with self.assertRaises(TypeError):
             json.dumps({"foo": datetime.fromisoformat("2021-06-19")}, cls=_JSONEncoder)
 
+    def test_query_string(self):
+        proxy = LambdaSimpleProxy(
+            "us-east-1", "get", "http://example/?a=1&b=2", {}, None
+        )
+        response = proxy.send(self.mock_client)
+        assert response.status_code == 200
+        sent_payload = json.loads(
+            self.mock_client.invoke.call_args.kwargs.get("Payload")
+        )
+        assert sent_payload.get("queryStringParameters") == {"a": "1", "b": "2"}
+        assert "multiValueQueryStringParameters" not in sent_payload.keys()
+
+    def test_mix_multi_value_query_string(self):
+        proxy = LambdaSimpleProxy(
+            "us-east-1", "get", "http://example/?a=1&b=2&a=bob", {}, None
+        )
+        response = proxy.send(self.mock_client)
+        assert response.status_code == 200
+        sent_payload = json.loads(
+            self.mock_client.invoke.call_args.kwargs.get("Payload")
+        )
+        assert sent_payload.get("queryStringParameters") == {"b": "2"}
+        assert sent_payload.get("multiValueQueryStringParameters") == {
+            "a": ["1", "bob"]
+        }
+
+    def test_only_multi_value_query_string(self):
+        proxy = LambdaSimpleProxy(
+            "us-east-1", "get", "http://example/?a=1&a=bob", {}, None
+        )
+        response = proxy.send(self.mock_client)
+        assert response.status_code == 200
+        sent_payload = json.loads(
+            self.mock_client.invoke.call_args.kwargs.get("Payload")
+        )
+        assert sent_payload.get("queryStringParameters") == {}
+        assert sent_payload.get("multiValueQueryStringParameters") == {
+            "a": ["1", "bob"]
+        }
+
 
 class TestSimpleProxyAsync(IsolatedAsyncioTestCase):
     async def test_200_ok_async(self):
