@@ -117,7 +117,10 @@ class TestSimpleProxy(PatcherBase, TestCase):
             self.mock_client.invoke.call_args.kwargs.get("Payload")
         )
         assert sent_payload.get("queryStringParameters") == {"a": "1", "b": "2"}
-        assert "multiValueQueryStringParameters" not in sent_payload.keys()
+        assert sent_payload.get("multiValueQueryStringParameters") == {
+            "a": ["1"],
+            "b": ["2"],
+        }
 
     def test_mix_multi_value_query_string(self):
         proxy = LambdaSimpleProxy(
@@ -128,9 +131,10 @@ class TestSimpleProxy(PatcherBase, TestCase):
         sent_payload = json.loads(
             self.mock_client.invoke.call_args.kwargs.get("Payload")
         )
-        assert sent_payload.get("queryStringParameters") == {"b": "2"}
+        assert sent_payload.get("queryStringParameters") == {"a": "1", "b": "2"}
         assert sent_payload.get("multiValueQueryStringParameters") == {
-            "a": ["1", "bob"]
+            "a": ["1", "bob"],
+            "b": ["2"],
         }
 
     def test_only_multi_value_query_string(self):
@@ -142,7 +146,7 @@ class TestSimpleProxy(PatcherBase, TestCase):
         sent_payload = json.loads(
             self.mock_client.invoke.call_args.kwargs.get("Payload")
         )
-        assert sent_payload.get("queryStringParameters") == {}
+        assert sent_payload.get("queryStringParameters") == {"a": "1"}
         assert sent_payload.get("multiValueQueryStringParameters") == {
             "a": ["1", "bob"]
         }
